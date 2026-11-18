@@ -3,6 +3,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.seed_optimization import (
+    CAPACITY_SEED,
+    EFFECT_SEED,
+    ICEBERG_ROWS,
+    PLAN_SEED,
+    STATS_EXTRA_ROWS,
+)
+
 SEED_ROWS: dict[str, list[dict[str, Any]]] = {
     "tablefmt": [{'id': 1,
   'status': '草稿',
@@ -292,42 +300,7 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '预计耗时': '分区演进管理样例3',
   '影响行数': '分区演进管理样例3',
   '计划状态': '分区演进管理样例3'}],
-    "iceberg": [{'id': 1,
-  'status': '待执行',
-  'pending': True,
-  'abnormal': False,
-  '任务编号': 'ICEB-0001',
-  '表名称': '表优化管理样例1',
-  '优化类型': '表优化管理样例1',
-  '优化参数': '表优化管理样例1',
-  '执行计划': '表优化管理样例1',
-  '资源消耗': '表优化管理样例1',
-  '优化效果': '表优化管理样例1',
-  '任务状态': '表优化管理样例1'},
- {'id': 2,
-  'status': '执行中',
-  'pending': True,
-  'abnormal': True,
-  '任务编号': 'ICEB-0002',
-  '表名称': '表优化管理样例2',
-  '优化类型': '表优化管理样例2',
-  '优化参数': '表优化管理样例2',
-  '执行计划': '表优化管理样例2',
-  '资源消耗': '表优化管理样例2',
-  '优化效果': '表优化管理样例2',
-  '任务状态': '表优化管理样例2'},
- {'id': 3,
-  'status': '已完成',
-  'pending': False,
-  'abnormal': False,
-  '任务编号': 'ICEB-0003',
-  '表名称': '表优化管理样例3',
-  '优化类型': '表优化管理样例3',
-  '优化参数': '表优化管理样例3',
-  '执行计划': '表优化管理样例3',
-  '资源消耗': '表优化管理样例3',
-  '优化效果': '表优化管理样例3',
-  '任务状态': '表优化管理样例3'}],
+    "iceberg": ICEBERG_ROWS,
     "catalog": [{'id': 1,
   'status': '草稿',
   'pending': True,
@@ -543,7 +516,7 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '总容量': '表统计信息样例3',
   '列统计': '表统计信息样例3',
   '统计时间': '2026-09-03',
-  '报告状态': '表统计信息样例3'}],
+  '报告状态': '表统计信息样例3'}] + STATS_EXTRA_ROWS,
     "migrate": [{'id': 1,
   'status': '待执行',
   'pending': True,
@@ -579,5 +552,10 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '数据范围': '数据迁移管理样例3',
   '校验规则': '数据迁移管理样例3',
   '迁移耗时': '数据迁移管理样例3',
-  '任务状态': '数据迁移管理样例3'}]
+  '任务状态': '数据迁移管理样例3'}],
 }
+
+# 表优化执行计划链路的专用数据：批次、效果统计与容量统计。
+SEED_ROWS["plans"] = PLAN_SEED
+SEED_ROWS["effects"] = EFFECT_SEED
+SEED_ROWS["capacity"] = CAPACITY_SEED

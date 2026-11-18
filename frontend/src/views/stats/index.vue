@@ -3,7 +3,9 @@
     <header class="page-head">
       <div>
         <h2>表统计信息管理</h2>
-        <p class="page-desc">维护表统计的行数、文件数与容量分析，为表统计信息提供可审计的数据工程流程。</p>
+        <p class="page-desc">
+          维护表统计的行数、文件数与容量分析；执行计划批次结果沿用同一版本，历史记录保持只读展示。
+        </p>
       </div>
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记统计报告</button>
@@ -11,17 +13,17 @@
       </div>
     </header>
 
-    <div class="stat-row">
-      <article v-for="item in stats" :key="item.label" class="stat-card">
-        <span class="stat-label">{{ item.label }}</span>
-        <strong class="stat-value">{{ item.value }}</strong>
-      </article>
-    </div>
-
     <form class="filter-bar" @submit.prevent="reload">
-      <label v-for="field in filterFields" :key="field" class="filter-item">
-        <span>{{ field }}</span>
-        <input v-model="filters[field]" :placeholder="`按${field}检索`" />
+      <label class="filter-item">
+        <span>报告编号 / 表名称</span>
+        <input v-model="filters.keyword" placeholder="按报告编号或表名检索" />
+      </label>
+      <label class="filter-item">
+        <span>报告状态</span>
+        <select v-model="filters.status">
+          <option value="">全部</option>
+          <option v-for="status in statuses" :key="status" :value="status">{{ status }}</option>
+        </select>
       </label>
       <button class="btn" type="submit">查询</button>
       <button class="btn ghost" type="button" @click="resetFilters">重置条件</button>
@@ -31,12 +33,25 @@
       <thead>
         <tr>
           <th v-for="column in columns" :key="column">{{ column }}</th>
+          <th>执行计划</th>
+          <th>批次结果</th>
           <th>可执行动作</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)">
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
+          <td>
+            <span v-if="row['批次编号']">{{ row['批次编号'] }}（v{{ row['执行计划版本'] }}）</span>
+            <span v-else class="muted-text">历史记录</span>
+          </td>
+          <td>
+            <span v-if="row['是否历史记录']" class="muted-text">未关联执行计划</span>
+            <span v-else>
+              被选 {{ (row['被选任务'] || []).join('、') || '—' }}；
+              文件数变化 {{ row['文件数变化'] }}；容量变化 {{ row['容量变化'] }}
+            </span>
+          </td>
           <td class="row-actions">
             <button
               v-for="action in actions"
@@ -50,13 +65,14 @@
           </td>
         </tr>
         <tr v-if="!rows.length">
-          <td :colspan="columns.length + 1" class="empty-state">暂无表统计信息数据，可先登记统计报告</td>
+          <td :colspan="columns.length + 3" class="empty-state">暂无表统计信息数据，可先登记统计报告</td>
         </tr>
       </tbody>
     </table>
 
     <footer class="page-foot">
       <span>共 {{ total }} 条表统计信息记录</span>
+      <span v-if="noticeMessage" class="notice-text">{{ noticeMessage }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -67,22 +83,21 @@ import { onMounted, ref } from 'vue'
 
 import { request } from '@/api/client'
 
-type Row = Record<string, string | number | null>
+type Row = Record<string, any>
 
 const ENDPOINT = '/api/stats'
 const columns = ["报告编号", "表名称", "行总数", "文件总数", "总容量", "列统计", "统计时间", "报告状态"]
 const actions = ["采集统计", "标记过期", "清理报告"]
 const statuses = ["草稿", "已采集", "已过期", "已清理"]
-const stats = [{"label": "统计报告总数", "value": 0}, {"label": "已采集报告", "value": 0}, {"label": "已过期报告", "value": 0}]
 
 const rows = ref<Row[]>([])
 const total = ref(0)
 const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
-const filterFields = columns.slice(0, 3)
+const noticeMessage = ref('')
+const filters = ref<Record<string, string>>({ keyword: '', status: '' })
 
 function resetFilters() {
-  filters.value = {}
+  filters.value = { keyword: '', status: '' }
   void reload()
 }
 
@@ -96,14 +111,21 @@ function openCreate() {
 
 async function runAction(action: string, row: Row) {
   errorMessage.value = ''
+  noticeMessage.value = ''
   try {
     const response = await request(`${ENDPOINT}/${row.id}/actions`, {
       method: 'POST',
       body: JSON.stringify({ action }),
     })
+    const payload = await response.json()
+    if (payload?.ok === false) {
+      errorMessage.value = payload.message || '表统计信息动作未生效'
+      return
+    }
     if (!response.ok) {
       throw new Error('表统计信息动作未生效，请稍后重试')
     }
+    noticeMessage.value = payload.message || `统计报告已${action}`
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '表统计信息操作失败'
@@ -112,9 +134,11 @@ async function runAction(action: string, row: Row) {
 
 async function reload() {
   errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
+  const query = new URLSearchParams()
+  if (filters.value.keyword) query.set('keyword', filters.value.keyword)
+  if (filters.value.status) query.set('status', filters.value.status)
   try {
-    const response = await request(`${ENDPOINT}?${query}`)
+    const response = await request(`${ENDPOINT}?${query.toString()}`)
     if (!response.ok) {
       throw new Error('统计报告列表读取失败')
     }
